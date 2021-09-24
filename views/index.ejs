@@ -260,9 +260,8 @@ function showNextText(){
       var msec = Math.floor( Math.abs( ( next_timestamp_second - last_timestamp_second ) * 1000 ) );
       console.log( next_timestamp_second, last_timestamp_second, msec );
 
-      var ms = 1000;
       var before = Date.now();
-      while( Date.now() < before + ms ){};
+      while( Date.now() < before + msec ){};
       showNextText();
     }else{
       last_timestamp_second = 0;
