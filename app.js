@@ -145,8 +145,10 @@ async function processAudioFile( filepath, uuid, deleteFileWhenFinished ){
       sockets[uuid].emit( 'event_client_view', evt ); 
       if( evt.results[0].final ){
         var text = evt.results[0].alternatives[0].transcript;
+        text = text.split( ' ' ).join( '' );
+        console.log( 'text = ' + text );
 
-        //. Watson Discovery に問い合わせる？
+        //. Watson Discovery に問い合わせ
         var query_param = {
           environmentId: settings.discovery_environment_id,
           collectionId: settings.discovery_collection_id,
