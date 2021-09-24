@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8"/>
+<title>S2T Discovery</title>
+<script type="text/javascript" src="//code.jquery.com/jquery-2.2.4.min.js"></script>
+<link href="//maxcdn.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css" rel="stylesheet"/>
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/4.5.0/js/bootstrap.min.js"></script>
+<link href="//use.fontawesome.com/releases/v5.8.1/css/all.css" rel="stylesheet"/>
+<script src="/socket.io/socket.io.js"></script>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+
+<link rel="shortcut icon" href="/icon.png" type="image/png"/>
+<link rel="icon" href="/icon.png" type="image/png"/>
+<link rel="apple-touch-icon" href="/icon.png"/>
+
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black"/>
+<meta name="apple-mobile-web-app-title" content="S2T Discovery"/>
+
+<style type="text/css">
+html, body{
+  text-align: center;
+  background-color: #fafafa;
+  font-size: 20px;
+  color: #333;
+}
+.result_p{
+  text-align: left;
+  font-size: 12px;
+}
+.result_final{
+  color: #f33;
+  font-weight: bold;
+}
+
+.balloon1, .ballooned1 {
+  position: relative;
+  display: inline-block;
+  margin: 1.5em 0;
+  padding: 7px 10px;
+  min-width: 120px;
+  max-width: 100%;
+  color: #555;
+  font-size: 16px;
+  background: #e0edff;
+}
+
+.balloon1:before {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-left: -15px;
+  border: 15px solid transparent;
+  border-top: 15px solid #e0edff;
+}
+
+.ballooned1{
+  width: 90%;
+  margin: 0.2em 0 !important;
+  background: #ffede0;
+}
+
+.balloon1 p {
+  margin: 0;
+  padding: 0;
+}
+</style>
+</head>
+<body>
+
+<div>
+<table class="table">
+  <tr>
+    <td>
+      <select id="select_voice" name="select_voice">
+      </select>
+    </td>
+    <td>
+      <input type="button" class="btn btn-xs btn-primary" id="post_btn" value="POST" onClick="postAudio();"/>
+    </td>
+    <td>
+      <form name="frm1" id="frm1" enctype="multipart/mixed">
+      <input type="file" id="voice" name="voice"/>
+      </form>
+    </td>
+    <td>
+      <input type="button" class="btn btn-xs btn-success" id="upload_btn" value="UPLOAD" onClick="uploadAudio();"/>
+    </td>
+  </tr>
+</table>
+</div>
+
+<div id="audio_div">
+</div>
+
+<div id="result_div">
+</div>
+
+<script>
+var uuid = generateUUID();
+var socketio = null;
+var idx = -1;
+var idxtexts = [];
+var last_timestamp_second = 0;
+
+var base_url = location.origin + '/';
+
+$(function(){
+  socketio = io.connect();
+  init();
+});
+
+function init(){
+  $('#select_voice').html( '' );
+  $.ajax({
+    type: 'GET',
+    url: '/files',
+    success: function( result ){
+      if( result && result.status ){
+        for( var i = 0; i < result.files.length; i ++ ){
+          var opt = '<option value="' + result.files[i] + '">' + result.files[i] + '</option>';
+          $('#select_voice').append( opt );
+        }
+      }
+    },
+    error: function( e0, e1, e2 ){
+      console.log( e0, e1, e2 );
+    }
+  });
+
+  //. 初期化を通知
+  var msg = {
+    uuid: uuid,
+    timestamp: ( new Date() ).getTime()
+  };
+  socketio.emit( 'init_client', msg );
+
+  socketio.on( 'init_client_view', function( msg ){
+    console.log( 'init_client_view', msg );
+  });
+
+  socketio.on( 'event_client_view', function( evt ){
+    //console.log( 'event_client_view', evt );
+    /*
+    evt = {
+      result_index: 1,
+      results: [
+        {
+          final: false,
+          alternatives: [
+            {
+              transcript: "xxx xxxx xx xxxxxx ...",
+              timestamps: [
+                [ "xxx", 15.55, 16.04 ],
+                [ "xxxx", 16.25, 16.6 ],
+                [ "xx", 16.6, 16.71 ],
+                [ "xxxxxx", 16.71, 17.21 ],
+                  :
+              ]
+            }
+          ]
+        }
+      ]
+    }
+    */
+
+    var timestamps = evt.results[0].alternatives[0].timestamps;
+    var idxtext = { index: evt.result_index, text: evt.results[0].alternatives[0].transcript, timestamp_second: timestamps[timestamps.length-1][2], final: evt.results[0].final };
+    idxtexts.push( idxtext );
+    //console.log( '0', last_timestamp_second, idxtexts );
+    if( last_timestamp_second == 0 ){
+      setTimeout( showNextText, 1000 );
+    }
+  });
+}
+
+function postAudio(){
+  var voice = $('#select_voice').val();
+
+  //. フォームにして送信
+  var data = {
+    voice: voice,
+    timestamp: ( new Date() ).getTime(),
+    uuid: uuid
+  };
+
+  var audio = '<audio controls autoplay>'
+    + '<source src="/' + voice + '" type="audio/mp3"/>'
+    + '</audio>';
+  $('#audio_div').html( audio );
+  $('#result_div').html( '' );
+  idx = -1;
+  idxtexts = [];
+
+  //. １秒待って Ajax 実行
+  setTimeout( function(){
+    $.ajax({
+      type: 'POST',
+      url: '/voice',
+      data: data,
+      success: function( data, dataType ){
+        //. 実際はずっと処理中になるので、しばらく結果はかえって来ない
+        console.log( data );
+      },
+      error: function( jqXHR, textStatus, errorThrown ){
+        console.log( textStatus + ': ' + errorThrown );
+      }
+    });
+  }, 1000 );
+}
+
+function uploadAudio(){
+  var form = $('#frm1').get()[0];
+  var formData = new FormData( form );
+  formData.append( 'timestamp', ( new Date() ).getTime() );
+  formData.append( 'uuid', uuid );
+  $.ajax({
+    type: 'POST',
+    url: '/audio',
+    data: formData,
+    contentType: false,
+    processData: false,
+    success: function( data, dataType ){
+      //. 実際はずっと処理中になるので、しばらく結果はかえって来ない
+      console.log( data );
+    },
+    error: function( jqXHR, textStatus, errorThrown ){
+      console.log( textStatus + ': ' + errorThrown );
+    }
+  });
+
+  return false;
+}
+
+function showNextText(){
+  //console.log( '1', last_timestamp_second, idxtexts );
+  if( idxtexts.length > 0 ){
+    var idxtext = idxtexts[0];
+    idxtexts.splice( 0, 1 );
+
+    if( idx < idxtext.index ){
+      idx = idxtext.index;
+      $('#result_div').append( '<div id="result_div_' + idx + '" class="balloon1"><p class="result_p" id="result_p_' + idx + '"></p></div>' );
+    }
+    
+    $('#result_p_'+idxtext.index).html( idxtext.text );
+    if( idxtext.final ){
+      $('#result_div_'+idxtext.index).removeClass( 'balloon1' );
+      $('#result_div_'+idxtext.index).addClass( 'ballooned1' );
+      $('#result_p_'+idxtext.index).addClass( 'result_final' );
+    }
+
+    last_timestamp_second = idxtext.timestamp_second;
+    if( idxtexts.length > 0 ){
+      var next_timestamp_second = idxtexts[0].timestamp_second;
+      var msec = ( next_timestamp_second - last_timestamp_second ) * 1000;
+      setTimeout( showNextText, msec );
+    }
+  }else{
+    last_timestamp_second = 0;
+  }
+}
+
+function generateUUID(){
+  //. Cookie の値を調べて、有効ならその値で、空だった場合は生成する
+  var did = null;
+  cookies = document.cookie.split(";");
+  for( var i = 0; i < cookies.length; i ++ ){
+    var str = cookies[i].split("=");
+    var une = unescape( str[0] );
+    if( une == " deviceid" || une == "deviceid" ){
+      did = unescape( unescape( str[1] ) );
+    }
+  }
+
+  if( did == null ){
+    var s = 1000;
+    did = ( new Date().getTime().toString(16) ) + Math.floor( s * Math.random() ).toString(16);
+  }
+
+  var dt = ( new Date() );
+  var ts = dt.getTime();
+  ts += 1000 * 60 * 60 * 24 * 365 * 100; //. 100 years
+  dt.setTime( ts );
+  var value = ( "deviceid=" + did + '; expires=' + dt.toUTCString() + '; path=/' );
+  if( isMobileSafari() ){
+    $.ajax({
+      url: '/setcookie',
+      type: 'POST',
+      data: { value: value },
+      success: function( r ){
+        //console.log( 'success: ', r );
+      },
+      error: function( e0, e1, e2 ){
+        //console.log( 'error: ', e1, e2 );
+      }
+    });
+  }else{
+    document.cookie = ( value );
+    //console.log( 'value: ', value );
+  }
+
+  return did;
+}
+
+function isMobileSafari(){
+  return ( navigator.userAgent.indexOf( 'Safari' ) > 0 && navigator.userAgent.indexOf( 'Mobile' ) > 0 );
+}
+</script>
+</body>
+</html>
