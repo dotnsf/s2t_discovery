@@ -172,7 +172,10 @@ function init(){
     idxtexts.push( idxtext );
     //console.log( '0', last_timestamp_second, idxtexts );
     if( last_timestamp_second == 0 ){
-      setTimeout( showNextText, 1000 );
+      var ms = 1000;
+      var before = Date.now();
+      while( Date.now() < before + ms ){};
+      showNextText();
     }
   });
 }
@@ -195,21 +198,19 @@ function postAudio(){
   idx = -1;
   idxtexts = [];
 
-  //. １秒待って Ajax 実行
-  setTimeout( function(){
-    $.ajax({
-      type: 'POST',
-      url: '/voice',
-      data: data,
-      success: function( data, dataType ){
-        //. 実際はずっと処理中になるので、しばらく結果はかえって来ない
-        console.log( data );
-      },
-      error: function( jqXHR, textStatus, errorThrown ){
-        console.log( textStatus + ': ' + errorThrown );
-      }
-    });
-  }, 1000 );
+  //. Ajax 実行
+  $.ajax({
+    type: 'POST',
+    url: '/voice',
+    data: data,
+    success: function( data, dataType ){
+      //. 実際はずっと処理中になるので、しばらく結果はかえって来ない
+      console.log( data );
+    },
+    error: function( jqXHR, textStatus, errorThrown ){
+      console.log( textStatus + ': ' + errorThrown );
+    }
+  });
 }
 
 function uploadAudio(){
@@ -253,11 +254,18 @@ function showNextText(){
       $('#result_p_'+idxtext.index).addClass( 'result_final' );
     }
 
-    last_timestamp_second = idxtext.timestamp_second;
     if( idxtexts.length > 0 ){
+      last_timestamp_second = idxtext.timestamp_second;
       var next_timestamp_second = idxtexts[0].timestamp_second;
-      var msec = ( next_timestamp_second - last_timestamp_second ) * 1000;
-      setTimeout( showNextText, msec );
+      var msec = Math.floor( Math.abs( ( next_timestamp_second - last_timestamp_second ) * 1000 ) );
+      console.log( next_timestamp_second, last_timestamp_second, msec );
+
+      var ms = 1000;
+      var before = Date.now();
+      while( Date.now() < before + ms ){};
+      showNextText();
+    }else{
+      last_timestamp_second = 0;
     }
   }else{
     last_timestamp_second = 0;
