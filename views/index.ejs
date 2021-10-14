@@ -178,6 +178,16 @@ function init(){
       showNextText();
     }
   });
+
+  socketio.on( 'event_client_wd', function( evt ){
+    /*
+    evt = {
+      result_index: 1,
+      results: [ 'xxx', 'xxxx', .. ]
+    }
+    */
+    console.log( evt );
+  });
 }
 
 function postAudio(){

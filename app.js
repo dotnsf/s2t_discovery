@@ -144,11 +144,13 @@ async function processAudioFile( filepath, uuid, deleteFileWhenFinished ){
       */
       sockets[uuid].emit( 'event_client_view', evt ); 
       if( evt.results[0].final ){
+        var idx = evt.result_index;
         var text = evt.results[0].alternatives[0].transcript;
         text = text.split( ' ' ).join( '' );
         console.log( 'text = ' + text );
 
         //. Watson Discovery に問い合わせ
+        /*
         var query_param = {
           environmentId: settings.discovery_environment_id,
           collectionId: settings.discovery_collection_id,
@@ -165,7 +167,38 @@ async function processAudioFile( filepath, uuid, deleteFileWhenFinished ){
           }
         }).catch( function( err ){
           console.log( {err} );
-        })
+        });
+        */
+        var params = {
+          projectId: settings.discovery_project_id,
+          collectionIds: [ settings.discovery_collection_id ],
+          naturalLanguageQuery: 'text:' + text
+        };
+        //console.log( { params } );
+        my_discovery.discovery.query( params ).then( function( response ){
+          //console.log( response.result );
+          var results = [];
+          if( response.result.results && response.result.results.length ){
+            for( var i = 0; i < response.result.results.length; i ++ ){
+              var result = response.result.results[i]
+              if( result.document_id && result.result_metadata && result.document_passages && result.document_passages.length ){
+                var document_id = result.document_id;
+                var confidence = result.result_metadata.confidence;
+                var passage_text = result.document_passages[0].passage_text;
+                var wd_result = {
+                  index: i,
+                  document_id: document_id,
+                  confidence: confidence,
+                  passage_text: passage_text
+                };
+                //console.log( wd_result );
+                results.push( wd_result );
+              }
+            }
+          }
+
+          sockets[uuid].emit( 'event_client_wd', { result_index: idx, results, results } ); 
+        });
       }
     });
     s2t_stream.on( 'error', function( evt ){
