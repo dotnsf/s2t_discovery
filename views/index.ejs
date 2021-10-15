@@ -63,6 +63,10 @@ html, body{
   background: #ffede0;
 }
 
+.ballooned2{
+  background: #ede0ff;
+}
+
 .balloon1 p {
   margin: 0;
   padding: 0;
@@ -99,11 +103,24 @@ html, body{
 <div id="result_div">
 </div>
 
+<div class="modal bd-example-modal-lg fade" id="wdModal" tabindex="-1" role="dialog" aria-labbelledby="wdModal" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="wdModalLabel"></h4>
+      </div>
+      <div class="modal-body" id="wdmodal-body">
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 var uuid = generateUUID();
 var socketio = null;
 var idx = -1;
 var idxtexts = [];
+var idxwds = [];
 var last_timestamp_second = 0;
 
 var base_url = location.origin + '/';
@@ -186,7 +203,32 @@ function init(){
       results: [ 'xxx', 'xxxx', .. ]
     }
     */
-    console.log( evt );
+    //console.log( evt );
+    idxwds.push( evt );
+
+    $('#result_div_'+evt.result_index+')').addClass( 'ballooned2' );
+    $('#result_p_'+evt.result_index+')').click( function(){
+      var id = $(this).prop( 'id' );
+      var idx = id.substr(9);
+      var b = -1;
+      for( var i = 0; i < idxwds.length && b == -1; i ++ ){
+        if( idxwds[i].result_index == idx ){
+          b = i;
+        }
+      }
+      if( b > -1 ){
+        var wd = idxwds[b];
+        var results = wd.results;
+        var ul = '<ul>';
+        for( var i = 0; i < results.length; i ++ ){
+          ul += '<li>' + results[i] + '</li>';
+        }
+        ul += '</ul>';
+
+        $('#wdmodal-body').html( ul );
+        $('#wdModal').show();
+      }
+    });
   });
 }
 
