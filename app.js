@@ -202,6 +202,7 @@ async function processAudioFile( filepath, uuid, deleteFileWhenFinished ){
       }
     });
     s2t_stream.on( 'error', function( evt ){
+      console.log( { evt } ); //. WebSocket connection error: WebSocket connection error
       if( deleteFileWhenFinished ){
         fs.unlinkSync( filepath );
       }
