@@ -119,7 +119,7 @@ async function processAudioFile( filepath, uuid, deleteFileWhenFinished ){
     var s2t_stream = my_s2t.s2t.recognizeUsingWebSocket( s2t_params );
     fs.createReadStream( filepath ).pipe( s2t_stream );
     s2t_stream.on( 'data', function( evt ){
-      //console.log( evt );
+      //console.log( 's2t_stream:data', evt );
       /*
       evt = {
         result_index: 1,
@@ -202,12 +202,14 @@ async function processAudioFile( filepath, uuid, deleteFileWhenFinished ){
       }
     });
     s2t_stream.on( 'error', function( evt ){
+      console.log( 's2t_stream:error', evt );
       if( deleteFileWhenFinished ){
         fs.unlinkSync( filepath );
       }
       reject( evt );
     });
     s2t_stream.on( 'close', function( evt ){
+      //console.log( 's2t_stream:close', evt );
       if( deleteFileWhenFinished ){
         fs.unlinkSync( filepath );
       }

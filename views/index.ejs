@@ -67,6 +67,14 @@ html, body{
   margin: 0;
   padding: 0;
 }
+
+.ballooned2{
+  background: #edffe0;
+}
+
+.no_decoration{
+  text-decoration: none;
+}
 </style>
 </head>
 <body>
@@ -99,11 +107,24 @@ html, body{
 <div id="result_div">
 </div>
 
+<div class="modal bd-example-modal-lg fade" id="wdModal" tabindex="-1" role="dialog" aria-labbelledby="wdModal" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title" id="wdModalLabel"></h4>
+      </div>
+      <div class="modal-body" id="wdmodal-body">
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 var uuid = generateUUID();
 var socketio = null;
 var idx = -1;
 var idxtexts = [];
+var idxballooned = {};
 var last_timestamp_second = 0;
 
 var base_url = location.origin + '/';
@@ -183,10 +204,29 @@ function init(){
     /*
     evt = {
       result_index: 1,
-      results: [ 'xxx', 'xxxx', .. ]
+      results: [ 
+        { confidence: 0.05, document_id: 'xx', index: 0, passage_text: 'xxxxx' },
+      ]
     }
     */
     console.log( evt );
+    idxballooned[evt.result_index] = evt.results;
+    $('#result_div_'+evt.result_index).addClass( 'ballooned2' );
+    $('#result_p_'+evt.result_index).click( function(){
+      var id = $(this).prop( 'id' );
+      var idx = id.substr( 9 );
+
+      if( idxballooned[idx] ){
+        var ul = '<ul>';
+        for( var i = 0; i < idxballooned[idx].length; i ++ ){
+          ul += '<li><a href="#" class="no_decoration" title="' + idxballooned[idx][i].confidence + '">' + idxballooned[idx][i].passage_text + '</a></li>';
+        }
+        ul += '</ul>';
+
+        $('#wdmodal-body').html( ul );
+        $('#wdModal').modal();
+      }
+    });
   });
 }
 
@@ -207,6 +247,7 @@ function postAudio(){
   $('#result_div').html( '' );
   idx = -1;
   idxtexts = [];
+  idxballooned = {};
 
   //. Ajax 実行
   $.ajax({
@@ -224,6 +265,10 @@ function postAudio(){
 }
 
 function uploadAudio(){
+  idx = -1;
+  idxtexts = [];
+  idxballooned = {};
+
   var form = $('#frm1').get()[0];
   var formData = new FormData( form );
   formData.append( 'timestamp', ( new Date() ).getTime() );
@@ -260,6 +305,7 @@ function showNextText(){
     $('#result_p_'+idxtext.index).html( idxtext.text );
     if( idxtext.final ){
       $('#result_div_'+idxtext.index).removeClass( 'balloon1' );
+      $('#result_div_'+idxtext.index).removeClass( 'balloon2' );
       $('#result_div_'+idxtext.index).addClass( 'ballooned1' );
       $('#result_p_'+idxtext.index).addClass( 'result_final' );
     }
